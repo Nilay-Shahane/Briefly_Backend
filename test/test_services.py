@@ -78,7 +78,7 @@ def test_create_user_success(mock_supabase):
 
     assert result[0]["email"] == "test@test.com"
 
-    @patch("services.user_services.supabase")
+@patch("services.user_services.supabase")
 @patch("services.user_services.verify_password")
 def test_user_login_success(mock_verify, mock_supabase):
     # Setup: Password is valid
