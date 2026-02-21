@@ -36,6 +36,9 @@ jobs:
         echo "AWS_SECRET_ACCESS_KEY=testing" >> $GITHUB_ENV
         echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
         echo "S3_BUCKET_NAME=test-bucket" >> $GITHUB_ENV
+        echo "DATABASE_URL=https://testing.supabase.co" >> $GITHUB_ENV
+        echo "DATABASE_KEY=testing-key" >> $GITHUB_ENV
+
 
     - name: Run Tests with pytest
       run: |
