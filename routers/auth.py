@@ -11,7 +11,7 @@ router = APIRouter(
 @router.post('/signup')
 def user_signup(user:UserSignUpModel):
     user_resp = create_user(user)
-    return {'status_code':200,
+    return {'status_code':200,  
             'message':'User Successfully created',
             'id' : user_resp    
         }
@@ -20,11 +20,11 @@ def user_signup(user:UserSignUpModel):
 def login_user(user: UserLoginModel):
     try:
         user_data = user_login(user)
-
+        print(user_data)
         return {
             "status": "success",
             "message": "Login successful",
-            "data": user_data
+            "data": user_data['id']
         }
 
     except Exception as e:

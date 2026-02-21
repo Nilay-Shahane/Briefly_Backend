@@ -1,6 +1,7 @@
 from pydantic import BaseModel , Field , EmailStr
 from datetime import datetime 
 from enum import Enum
+
 class SummaryType(str , Enum):
     static = 'static'
     deep = 'deep'

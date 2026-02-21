@@ -36,7 +36,7 @@ def load():
     except Exception as e:
         print(f'-- CRITICAL ERROR loading deep model: {e} --')
 
-def predict(text: str, max_length: int = 150) -> str:
+def predict(text: str, max_length: int ) -> str:
     global tokenizer, model
     
     if not model or not tokenizer:
@@ -50,24 +50,32 @@ def predict(text: str, max_length: int = 150) -> str:
     
     # Determine device
     device = model.device
+    max_input_length = tokenizer.model_max_length
+
 
     # Tokenize (Move inputs to the same device as model)
     inputs = tokenizer(
-        clean_text, 
-        max_length=1024, 
-        return_tensors="pt", 
-        truncation=True
+        clean_text,
+        max_length=max_input_length,
+        truncation=True,
+        return_tensors="pt"
     ).to(device)
+
 
     # FIX 2: Relax constraints. 
     # forcing min_length == max_length usually produces repetitive garbage.
+    max_length = min(max_length, 200)
     summary_ids = model.generate(
-        inputs["input_ids"], 
-        num_beams=4, 
-        max_length=max_length, 
-        min_length=max(30, int(max_length * 0.4)), # Dynamic min length
-        length_penalty=2.0,
-        early_stopping=True
-    )
+    inputs["input_ids"],
+    max_length=max_length,
+    min_length=int(max_length * 0.5),
+    do_sample=True,
+    top_p=0.9,
+    temperature=0.8,
+    no_repeat_ngram_size=3,
+    repetition_penalty=1.2
+)
+
+
 
     return tokenizer.decode(summary_ids[0], skip_special_tokens=True)
