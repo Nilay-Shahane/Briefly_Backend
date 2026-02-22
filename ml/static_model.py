@@ -15,6 +15,8 @@ def load_model():
 
 def predict(text: str, num_sentences: int) -> str:
     global nlp
+    if not text or not text.strip():
+        return "Text too short to summarize."
 
     if not nlp:
         load_model()

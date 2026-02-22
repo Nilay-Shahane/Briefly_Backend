@@ -38,8 +38,12 @@ def test_deep_predict_lazy_loading():
 @patch("ml.deep_model.model")
 def test_deep_predict_mocked(mock_model, mock_tokenizer):
     """Test the processing logic of predict_deep without loading the 500MB model."""
-    # 1. Setup mock tokenizer return
-    mock_tokenizer.return_value = {"input_ids": "fake_tensor", "attention_mask": "fake_mask"}
+    
+    # 1. Setup mock tokenizer return using MagicMock
+    mock_inputs = MagicMock()
+    mock_inputs.to.return_value = {"input_ids": "fake_tensor", "attention_mask": "fake_mask"}
+    mock_tokenizer.return_value = mock_inputs
+    
     mock_tokenizer.model_max_length = 1024
     
     # 2. Setup mock model generation
