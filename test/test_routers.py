@@ -8,17 +8,16 @@ client = TestClient(app)
 
 ### Logic: Testing the SIGNUP Route
 @patch("routers.auth.create_user") # We patch the function WHERE it's imported in auth.py
+@patch("routers.auth.create_user") 
 def test_user_signup_endpoint(mock_create):
-    # Setup: Tell the mock what to return so the router doesn't crash
     mock_create.return_value = [{"id": 1, "email": "test@test.com"}]
     
-    # Action: The TestClient 'hits' your API like a real browser would
+    # FIXED: Removed the nested response line
     response = client.post(
         "/users/signup", 
-        json={"email": "test@test.com", "password": "password123", "name": "Test User"}
+        json={"email": "test@test.com", "password": "password123"} 
     )
     
-    # Verification
     assert response.status_code == 200
     assert response.json()["message"] == "User Successfully created"
     assert "id" in response.json()
@@ -31,7 +30,7 @@ def test_login_endpoint_unauthorized(mock_login):
     
     response = client.post(
         "/users/login", 
-        json={"email": "wrong@test.com", "password": "wrong"}
+        data={"username": "wrong@test.com", "password": "wrong"}
     )
     
     # Verification: Does the router correctly convert the error to 401?
