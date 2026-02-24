@@ -3,6 +3,7 @@ import boto3
 import pytest
 from moto import mock_aws
 from unittest.mock import patch, MagicMock
+from botocore.exceptions import ClientError
 
 # Import the exceptions and models
 from postgrest.exceptions import APIError
@@ -19,7 +20,7 @@ from services.user_services import (
     UserLoginModel
 )
 
-# --- FIX 1: AWS Credentials Fixture ---
+# --- AWS Credentials Fixture ---
 @pytest.fixture(scope="function", autouse=True)
 def aws_credentials():
     """Mocked AWS Credentials for moto."""
@@ -31,47 +32,46 @@ def aws_credentials():
     os.environ["S3_BUCKET_NAME"] = "my-test-bucket"
 
 # --- S3 TESTS ---
-@mock_aws
-def test_upload_file_to_s3_success():
-    # Setup mock bucket
-    s3 = boto3.client("s3", region_name="us-east-1")
-    s3.create_bucket(Bucket="my-test-bucket")
+# FIX 1: Patch the global s3_client directly in your s3.py module
+@patch("services.s3.s3_client")
+def test_upload_file_to_s3_success(mock_s3_client):
+    # Setup mock behavior: force a 404 so it proceeds to upload
+    error_response = {'Error': {'Code': '404'}}
+    mock_s3_client.head_object.side_effect = ClientError(error_response, 'HeadObject')
 
     file_content = b"hello world"
     filename = "test.txt"
     
     url = upload_file_to_s3(file_content, filename, "text/plain")
 
-    assert "my-test-bucket" in url
-    objects = s3.list_objects_v2(Bucket="my-test-bucket")
-    assert len(objects["Contents"]) == 1
-    # Check that the filename part exists in the S3 Key
-    assert any(filename in obj["Key"] for obj in objects["Contents"])
+    assert filename in url
+    # Verify the upload function was actually called
+    mock_s3_client.upload_fileobj.assert_called_once()
 
-@mock_aws
-def test_upload_file_to_s3_deduplication():
-    s3 = boto3.client("s3", region_name="us-east-1")
-    s3.create_bucket(Bucket="my-test-bucket")
+@patch("services.s3.s3_client")
+def test_upload_file_to_s3_deduplication(mock_s3_client):
+    # Setup mock behavior: return successfully from head_object, simulating file already exists
+    mock_s3_client.head_object.return_value = {}
 
     file_content = b"duplicate content"
     
-    # First upload
-    upload_file_to_s3(file_content, "file.txt", "text/plain")
-    # Second upload (should skip via head_object if your service handles it)
     url = upload_file_to_s3(file_content, "file.txt", "text/plain")
     
-    assert "my-test-bucket" in url
-    objects = s3.list_objects_v2(Bucket="my-test-bucket")
-    assert len(objects["Contents"]) == 1
+    assert "file.txt" in url
+    # Verify that because it existed, upload was NEVER called
+    mock_s3_client.upload_fileobj.assert_not_called()
 
 # --- PDF TESTS ---
-# FIX 2: Mocking the actual library used inside process_pdf to avoid empty string errors
-@patch("services.pdf_preprocessing.PyPDF2.PdfReader") 
-def test_process_pdf_logic(mock_reader):
+# FIX 2: Mock 'PdfReader' directly based on the exact import in your pdf_preprocessing.py
+@patch("services.pdf_preprocessing.PdfReader") 
+def test_process_pdf_logic(mock_reader_class):
     # Simulate a PDF with one page of text
     mock_page = MagicMock()
     mock_page.extract_text.return_value = "Extracted PDF content"
-    mock_reader.return_value.pages = [mock_page]
+    
+    # Attach the fake page to the mock instance
+    mock_instance = mock_reader_class.return_value
+    mock_instance.pages = [mock_page]
     
     result = process_pdf(b"fake_pdf_bytes")
     
@@ -85,7 +85,7 @@ def test_create_user_success(mock_supabase):
     mock_execute.data = [{"id": 1, "email": "test@test.com"}]
     mock_supabase.table.return_value.insert.return_value.execute.return_value = mock_execute
 
-    user = UserSignUpModel(email="test@test.com", password="password", name="Test")
+    user = UserSignUpModel(email="test@test.com", password="password123", name="Test")
     result = create_user(user)
 
     assert result[0]["email"] == "test@test.com"
@@ -126,10 +126,10 @@ def test_get_user_history_not_found(mock_supabase):
 
 @patch("services.user_services.supabase")
 def test_database_error_handling(mock_supabase):
-    # FIX 3: Updated APIError initialization for compatibility
     mock_supabase.table.return_value.insert.side_effect = APIError({"message": "Database is down", "code": "500"})
     
-    user_in = UserSignUpModel(email="err@test.com", password="123", name="Err")
+    # FIX 3: Increased password length to pass Pydantic validation
+    user_in = UserSignUpModel(email="err@test.com", password="password123", name="Err")
     with pytest.raises(Exception) as exc:
         create_user(user_in)
     assert "Database is down" in str(exc.value)
