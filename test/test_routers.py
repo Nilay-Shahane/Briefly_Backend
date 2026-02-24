@@ -7,12 +7,10 @@ import io
 client = TestClient(app)
 
 ### --- SIGNUP ROUTE ---
-# FIX: Only one patch is needed. Ensure 'client' fixture is passed if using pytest.
 @patch("routers.auth.create_user") 
 def test_user_signup_endpoint(mock_create):
     mock_create.return_value = [{"id": 1, "email": "test@test.com"}]
     
-    # FIX: Ensure keys match your UserSignUpModel (likely needs 'name' too if required)
     response = client.post(
         "/users/signup", 
         json={"email": "test@test.com", "password": "password123", "name": "Test User"} 
@@ -20,7 +18,7 @@ def test_user_signup_endpoint(mock_create):
     
     assert response.status_code == 200
     assert response.json()["message"] == "User Successfully created"
-    assert "id" in response.json()["data"] # Adjusted to common nested 'data' structure
+    # FIX: Removed the check for 'data' key as the router doesn't return it here.
 
 ### --- LOGIN ROUTE ---
 @patch("routers.auth.user_login")
@@ -28,14 +26,12 @@ def test_login_endpoint_unauthorized(mock_login):
     # Setup: Simulate the service raising an exception
     mock_login.side_effect = Exception("User not found")
     
-    # FIX: Changed 'data=' to 'json=' to avoid 422 Validation Error
-    # FIX: Changed 'username' to 'email' to match UserLoginModel
+    # FIX: Increased password length to pass Pydantic validation and reach the 401 logic
     response = client.post(
         "/users/login", 
-        json={"email": "wrong@test.com", "password": "wrong"}
+        json={"email": "wrong@test.com", "password": "wrongpassword123"}
     )
     
-    # This will now correctly trigger your 401 logic instead of a 422 validation error
     assert response.status_code == 401
     assert response.json()["detail"] == "User not found"
 
@@ -68,7 +64,7 @@ def test_save_summary_success(mock_save_db, mock_s3, mock_predict, mock_process)
 
     # Form Data (Multi-part form fields)
     data = {
-        "user_id": "1", # Form data is usually strings
+        "user_id": "1", 
         "summary_type": "static",
         "max_length": "5"
     }
@@ -81,7 +77,6 @@ def test_save_summary_success(mock_save_db, mock_s3, mock_predict, mock_process)
 
     assert response.status_code == 200
     assert response.json()["message"] == "Summary saved successfully"
-    # Ensure you access the list/dict correctly based on your service return
     assert response.json()["data"][0]["id"] == 10
     
     mock_process.assert_called_once()

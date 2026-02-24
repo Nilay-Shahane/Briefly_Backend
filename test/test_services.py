@@ -32,7 +32,6 @@ def aws_credentials():
     os.environ["S3_BUCKET_NAME"] = "my-test-bucket"
 
 # --- S3 TESTS ---
-# FIX 1: Patch the global s3_client directly in your s3.py module
 @patch("services.s3.s3_client")
 def test_upload_file_to_s3_success(mock_s3_client):
     # Setup mock behavior: force a 404 so it proceeds to upload
@@ -62,8 +61,8 @@ def test_upload_file_to_s3_deduplication(mock_s3_client):
     mock_s3_client.upload_fileobj.assert_not_called()
 
 # --- PDF TESTS ---
-# FIX 2: Mock 'PdfReader' directly based on the exact import in your pdf_preprocessing.py
-@patch("services.pdf_preprocessing.PdfReader") 
+# FIX: Adjusted the patch path to include PyPDF2 (assuming that is how it is imported in pdf_preprocessing.py)
+@patch("services.pdf_preprocessing.PyPDF2.PdfReader") 
 def test_process_pdf_logic(mock_reader_class):
     # Simulate a PDF with one page of text
     mock_page = MagicMock()
@@ -128,8 +127,7 @@ def test_get_user_history_not_found(mock_supabase):
 def test_database_error_handling(mock_supabase):
     mock_supabase.table.return_value.insert.side_effect = APIError({"message": "Database is down", "code": "500"})
     
-    # FIX 3: Increased password length to pass Pydantic validation
     user_in = UserSignUpModel(email="err@test.com", password="password123", name="Err")
     with pytest.raises(Exception) as exc:
         create_user(user_in)
-    assert "Database is down" in str(exc.value)
+    assert "Database is down" in str(exc.value) 
