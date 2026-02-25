@@ -61,19 +61,23 @@ def test_upload_file_to_s3_deduplication(mock_s3_client):
     mock_s3_client.upload_fileobj.assert_not_called()
 
 # --- PDF TESTS ---
-# FIX: Adjusted the patch path to include PyPDF2 (assuming that is how it is imported in pdf_preprocessing.py)
-@patch("services.pdf_preprocessing.PyPDF2.PdfReader") 
-def test_process_pdf_logic(mock_reader_class):
-    # Simulate a PDF with one page of text
+@patch("services.pdf_preprocessing.pdfplumber.open") 
+def test_process_pdf_logic(mock_pdfplumber_open):
+    # 1. Create a fake page that returns our test text
     mock_page = MagicMock()
     mock_page.extract_text.return_value = "Extracted PDF content"
     
-    # Attach the fake page to the mock instance
-    mock_instance = mock_reader_class.return_value
-    mock_instance.pages = [mock_page]
+    # 2. Create a fake PDF object that holds our fake page
+    mock_pdf = MagicMock()
+    mock_pdf.pages = [mock_page]
     
+    # 3. Tell the mock to return our fake PDF when used in a "with" statement
+    mock_pdfplumber_open.return_value.__enter__.return_value = mock_pdf
+    
+    # 4. Run the function
     result = process_pdf(b"fake_pdf_bytes")
     
+    # 5. Verify the result
     assert isinstance(result, str)
     assert result == "Extracted PDF content"
 
@@ -130,4 +134,4 @@ def test_database_error_handling(mock_supabase):
     user_in = UserSignUpModel(email="err@test.com", password="password123", name="Err")
     with pytest.raises(Exception) as exc:
         create_user(user_in)
-    assert "Database is down" in str(exc.value) 
+    assert "Database is down" in str(exc.value)
